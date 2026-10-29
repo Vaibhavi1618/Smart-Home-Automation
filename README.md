@@ -2,6 +2,8 @@
 
 An IoT-based smart home prototype using an **ESP32**, **PIR motion sensor**, **DHT11 temperature and humidity sensor**, and **two LEDs**. The system detects movement, monitors room temperature and humidity, and uses LEDs to demonstrate automated home responses.
 
+🔗 Project Link:https://mokxi.com/p/6tqXDmpP2F2wnm3W?utm_source=share&utm_medium=link&ref=_qdiKxHlpajCU2W2
+
 ## ✨ Features
 
 - **Motion detection:** Detects movement using a PIR sensor.
@@ -113,11 +115,3 @@ Add your Arduino sketch and a circuit diagram or project photos to the repositor
 ## 📚 Learning Outcomes
 
 This project demonstrates ESP32 GPIO input/output, sensor interfacing, conditional logic, basic automation, and serial debugging.
-
-## 👩‍💻 Author
-
-**Your Name**
-
----
-
-*Educational prototype for learning IoT and embedded systems.*
