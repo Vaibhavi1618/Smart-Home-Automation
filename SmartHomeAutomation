@@ -1,0 +1,75 @@
+#include <DHT.h>
+
+// ESP32 pin connections
+const int LIGHT_LED = 26;
+const int FAN_LED = 27;
+const int PIR_PIN = 18;
+const int DHT_PIN = 4;
+
+#define DHTTYPE DHT11
+DHT dht(DHT_PIN, DHTTYPE);
+
+float temperature = 0;
+float humidity = 0;
+
+bool fanOn = false;
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(LIGHT_LED, OUTPUT);
+  pinMode(FAN_LED, OUTPUT);
+  pinMode(PIR_PIN, INPUT);
+
+  digitalWrite(LIGHT_LED, LOW);
+  digitalWrite(FAN_LED, LOW);
+
+  dht.begin();
+
+  Serial.println("Smart Home Automation Started");
+}
+
+void loop() {
+  // Read motion sensor
+  int motion = digitalRead(PIR_PIN);
+
+  // Light ON when motion is detected
+  if (motion == HIGH) {
+    digitalWrite(LIGHT_LED, HIGH);
+  } else {
+    digitalWrite(LIGHT_LED, LOW);
+  }
+
+  // Read temperature and humidity
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+
+  if (!isnan(t) && !isnan(h)) {
+    temperature = t;
+    humidity = h;
+
+    // Fan indicator ON at 28 C
+    // OFF at 26 C or below
+    if (temperature >= 28.0) {
+      fanOn = true;
+    } else if (temperature <= 26.0) {
+      fanOn = false;
+    }
+
+    digitalWrite(FAN_LED, fanOn ? HIGH : LOW);
+
+    Serial.print("Temperature: ");
+    Serial.print(temperature);
+    Serial.print(" C | Humidity: ");
+    Serial.print(humidity);
+    Serial.print("% | Motion: ");
+    Serial.print(motion ? "Detected" : "Not detected");
+    Serial.print(" | Fan: ");
+    Serial.println(fanOn ? "ON" : "OFF");
+  } else {
+    Serial.println("DHT11 reading unavailable");
+  }
+
+  delay(2000);
+}
+
