@@ -1,75 +1,174 @@
-#include <DHT.h>
 
-// ESP32 pin connections
-const int LIGHT_LED = 26;
-const int FAN_LED = 27;
-const int PIR_PIN = 18;
-const int DHT_PIN = 4;
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-#define DHTTYPE DHT11
-DHT dht(DHT_PIN, DHTTYPE);
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-float temperature = 0;
-float humidity = 0;
+#include "driver/gpio.h"
+#include "esp_timer.h"
+#include "esp_rom_sys.h"
 
-bool fanOn = false;
+// Pin definitions
+#define PIR_PIN     GPIO_NUM_27
+#define LED1_PIN    GPIO_NUM_12
+#define LED2_PIN    GPIO_NUM_14
+#define DHT_PIN     GPIO_NUM_13
 
-void setup() {
-  Serial.begin(115200);
+// Configure GPIO pins
+void setup_gpio()
+{
+    gpio_config_t input_config = {
+        .pin_bit_mask = (1ULL << PIR_PIN),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
 
-  pinMode(LIGHT_LED, OUTPUT);
-  pinMode(FAN_LED, OUTPUT);
-  pinMode(PIR_PIN, INPUT);
+    gpio_config(&input_config);
 
-  digitalWrite(LIGHT_LED, LOW);
-  digitalWrite(FAN_LED, LOW);
+    gpio_config_t output_config = {
+        .pin_bit_mask = (1ULL << LED1_PIN) |
+                        (1ULL << LED2_PIN),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
 
-  dht.begin();
-
-  Serial.println("Smart Home Automation Started");
+    gpio_config(&output_config);
 }
 
-void loop() {
-  // Read motion sensor
-  int motion = digitalRead(PIR_PIN);
+// Wait for a particular GPIO level
+bool wait_level(int level, int timeout)
+{
+    int64_t start = esp_timer_get_time();
 
-  // Light ON when motion is detected
-  if (motion == HIGH) {
-    digitalWrite(LIGHT_LED, HIGH);
-  } else {
-    digitalWrite(LIGHT_LED, LOW);
-  }
-
-  // Read temperature and humidity
-  float t = dht.readTemperature();
-  float h = dht.readHumidity();
-
-  if (!isnan(t) && !isnan(h)) {
-    temperature = t;
-    humidity = h;
-
-    // Fan indicator ON at 28 C
-    // OFF at 26 C or below
-    if (temperature >= 28.0) {
-      fanOn = true;
-    } else if (temperature <= 26.0) {
-      fanOn = false;
+    while (gpio_get_level(DHT_PIN) != level)
+    {
+        if (esp_timer_get_time() - start > timeout)
+            return false;
     }
 
-    digitalWrite(FAN_LED, fanOn ? HIGH : LOW);
-
-    Serial.print("Temperature: ");
-    Serial.print(temperature);
-    Serial.print(" C | Humidity: ");
-    Serial.print(humidity);
-    Serial.print("% | Motion: ");
-    Serial.print(motion ? "Detected" : "Not detected");
-    Serial.print(" | Fan: ");
-    Serial.println(fanOn ? "ON" : "OFF");
-  } else {
-    Serial.println("DHT11 reading unavailable");
-  }
-
-  delay(2000);
+    return true;
 }
 
+// Read DHT22 sensor
+bool read_dht22(float *temperature, float *humidity)
+{
+    uint8_t data[5] = {0};
+
+    gpio_set_direction(DHT_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(DHT_PIN, 0);
+
+    esp_rom_delay_us(1200);
+
+    gpio_set_level(DHT_PIN, 1);
+    esp_rom_delay_us(30);
+
+    gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
+
+    // Sensor response
+    if (!wait_level(0, 100))
+        return false;
+
+    if (!wait_level(1, 100))
+        return false;
+
+    if (!wait_level(0, 100))
+        return false;
+
+    // Read 40 bits
+    for (int i = 0; i < 40; i++)
+    {
+        if (!wait_level(1, 100))
+            return false;
+
+        int64_t start = esp_timer_get_time();
+
+        if (!wait_level(0, 100))
+            return false;
+
+        int duration = esp_timer_get_time() - start;
+
+        data[i / 8] <<= 1;
+
+        if (duration > 40)
+            data[i / 8] |= 1;
+    }
+
+    // Check checksum
+    uint8_t checksum =
+        data[0] + data[1] + data[2] + data[3];
+
+    if (checksum != data[4])
+        return false;
+
+    // Calculate humidity
+    *humidity = ((data[0] << 8) | data[1]) / 10.0;
+
+    // Calculate temperature
+    int raw_temp = ((data[2] & 0x7F) << 8) | data[3];
+
+    *temperature = raw_temp / 10.0;
+
+    if (data[2] & 0x80)
+        *temperature = -*temperature;
+
+    return true;
+}
+
+// Main function
+void app_main(void)
+{
+    setup_gpio();
+
+    printf("ESP32 Smart Monitoring System Started\n");
+
+    while (1)
+    {
+        // PIR motion detection
+        int motion = gpio_get_level(PIR_PIN);
+
+        if (motion == 1)
+        {
+            gpio_set_level(LED1_PIN, 1);
+            printf("Motion Detected!\n");
+        }
+        else
+        {
+            gpio_set_level(LED1_PIN, 0);
+            printf("No Motion Detected!\n");
+        }
+
+        // DHT22 sensor reading
+        float temperature;
+        float humidity;
+
+        if (read_dht22(&temperature, &humidity))
+        {
+            printf("Temperature: %.1f C\n", temperature);
+            printf("Humidity: %.1f %%\n", humidity);
+
+            if (temperature >= 30.0)
+            {
+                gpio_set_level(LED2_PIN, 1);
+                printf("High Temperature: LED ON\n");
+            }
+            else
+            {
+                gpio_set_level(LED2_PIN, 0);
+                printf("Normal Temperature: LED OFF\n");
+            }
+        }
+        else
+        {
+            printf("DHT22 Reading Failed!\n");
+            gpio_set_level(LED2_PIN, 0);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
+    }
+}
