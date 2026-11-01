@@ -34,13 +34,13 @@ The following is an example pin mapping. Change the GPIO numbers in your sketch 
 |---|---|
 | DHT11 VCC | 3V3 (check your module specifications) |
 | DHT11 GND | GND |
-| DHT11 DATA | GPIO 4 |
+| DHT11 DATA | GPIO 13 |
 | PIR VCC | Supply required by your PIR module (often 5V; check its specifications) |
 | PIR GND | GND |
-| PIR OUT | GPIO 18 |
-| LED 1 anode (+) through a resistor | GPIO 26 |
+| PIR OUT | GPIO 27 |
+| LED 1 anode (+) through a resistor | GPIO 12 |
 | LED 1 cathode (−) | GND |
-| LED 2 anode (+) through a resistor | GPIO 27 |
+| LED 2 anode (+) through a resistor | GPIO 14 |
 | LED 2 cathode (−) | GND |
 
 **Important:** ESP32 GPIO pins are 3.3 V logic and are not 5 V tolerant. Verify that the PIR module's OUT signal does not exceed 3.3 V before connecting it to an ESP32 input. Connect all grounds together. Never connect an LED directly to a GPIO without a current-limiting resistor.
