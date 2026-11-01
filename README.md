@@ -2,7 +2,7 @@
 
 An IoT-based smart home prototype using an **ESP32**, **PIR motion sensor**, **DHT11 temperature and humidity sensor**, and **two LEDs**. The system detects movement, monitors room temperature and humidity, and uses LEDs to demonstrate automated home responses.
 
-🔗 Project Link:https://mokxi.com/p/6tqXDmpP2F2wnm3W?utm_source=share&utm_medium=link&ref=_qdiKxHlpajCU2W2
+🔗 Project Link:https://wokwi.com/projects/479509796599200769
 
 ## ✨ Features
 
